@@ -1,0 +1,50 @@
+:root {
+ --bg: #fff;
+ --fg: #000;
+ --fg-dim: grey;
+ --fg-visited: #555;
+ --quote-border: #c6c6c6;
+ --quote-bg: #ececec;
+}
+
+@media(prefers-color-scheme: dark) {
+ :root {
+  --bg: #111;
+  --fg: #fff;
+  --fg-visited: #aaa;
+  --quote-bg: #141414;
+ }
+}
+
+body { background: var(--bg); color: var(--fg); overflow-y: scroll; font-family: Helvetica; margin: 0px; }
+main { padding: 7px; max-width: 1024px; margin-left: auto; margin-right: auto; }
+img { max-width: 100%; }
+a { color: var(--fg); overflow-wrap: anywhere; font-weight: bold; text-decoration: underline; text-decoration-color: var(--fg); text-decoration-thickness: 2px; text-underline-offset: 2px; }
+a:visited { color: var(--fg-visited); text-decoration-color: var(--fg-visited); }
+a:hover { color: var(--fg-dim); text-decoration-color: var(--fg-dim); }
+
+nav { font-size: var(--font-size-big); border-bottom: 3px solid var(--fg); margin: 0px auto; padding: 7px; display: flex; flex-flow: row-reverse; }
+nav form { display: inherit; gap: 7px; }
+nav label, nav #check  { display: none; -webkit-tap-highlight-color: transparent; }
+nav label:focus { outline: none; }
+nav ul { padding: 0px; margin: 0px; margin-right: auto; }
+nav ul li { display: inline-block; margin: 7px; }
+nav ul li[sep]::before { content: "|"; }
+nav ul li a { text-decoration-color: transparent; }
+nav ul li a:hover { text-decoration-color: var(--fg); color: var(--fg); }
+
+details { display: inline-flex; border: 1px solid var(--fg); }
+details summary { cursor: pointer; padding: 2px 4px; }
+details summary:hover, details summary:hover * { color: var(--bg); background: var(--fg); }
+details[open] summary { border-bottom: 1px solid var(--fg); }
+
+table, th, td { border-collapse: collapse; padding: 4px; }
+table { border: 2px solid var(--fg); margin: 10px; }
+th, td { border-left: 1px solid var(--fg); border-right: 1px solid var(--fg); text-align: left; }
+th { border-bottom: 2px solid var(--fg); }
+
+@media(max-width: 800px) {
+ nav ul { display: none; }
+ nav ul li { display: block; }
+ nav ul li[sep] { display: none; }
+}
