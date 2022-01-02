@@ -1,4 +1,4 @@
-GROSS - RSS reader
+GRoSS - Go Reader of Simple Syndications
 
 API:
 / - show all feeds with links to /news/hash
