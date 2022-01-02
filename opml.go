@@ -50,7 +50,7 @@ func importOPML(filname string) error {
 func exportOPML(f string) error {
 	var o OPML
 	o.Version = "2.0"
-	o.Title = "OPML export from srr"
+	o.Title = "OPML export from GROSS"
 	for _, u := range feeds {
 		o.Outlines = append(o.Outlines, Outline{XmlUrl: u})
 	}

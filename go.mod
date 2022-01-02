@@ -1,4 +1,4 @@
-module github.com/ftphikari/srr
+module github.com/ftphikari/gross
 
 go 1.17
 

@@ -222,7 +222,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Unable to get cache dir:", err)
 	}
-	cachedir = filepath.Join(cachedir, "srr")
+	cachedir = filepath.Join(cachedir, "gross")
 	err = os.MkdirAll(cachedir, 0755)
 	if err != nil {
 		log.Fatal("Unable to make cache dir:", err)
@@ -232,7 +232,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Unable to get config dir:", err)
 	}
-	confdir = filepath.Join(confdir, "srr")
+	confdir = filepath.Join(confdir, "gross")
 	err = os.MkdirAll(confdir, 0755)
 	if err != nil {
 		log.Fatal("Unable to make config dir:", err)
