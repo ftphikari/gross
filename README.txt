@@ -5,13 +5,13 @@ API:
 /?add=link - add feed with that link
 /?del=hash - delete feed with that hash
 /?import=file - import feeds from file
-/?export - export current feed list to downloadable file
-/?toggleseen - toggle 'Hide already seen'
+/?export=1 - export current feed list to downloadable file
+/?toggleseen=1 - toggle 'Hide already seen'
+
+/update - update all feeds
 
 /news - show all news sorted with links to /news/hash/hash
-/news?update - update all feeds
 /news/hash - show all news in hashed feed sorted with links to /news/hash/hash
-/news/hash?update - update hashed feed
 /news/hash/hash - show hashed item from hashed feed
 
 /news?from=50 - start showing news since position 50
@@ -30,7 +30,7 @@ feeds should just be a list of urls
 
 X when / is requested, go over all links, hash them in the process,
 get feed title, get errors from map[hash]err
-* when /news is requested, go over all links, hash them in the process,
+X when /news is requested, go over all links, hash them in the process,
 collect feed items, sort them, display title, link to /news/hash/hash
 * when /news?update is requested, go over all links, hash them in the process,
 update each one

@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"path"
@@ -16,6 +17,7 @@ import (
 	"strings"
 	"sync"
 	"text/template"
+	"time"
 
 	"github.com/mmcdole/gofeed"
 	"github.com/nanmu42/gzip"
@@ -27,9 +29,9 @@ var (
 	feedsfile  string
 	feeds      []string
 	port       int
-	lock       sync.Mutex
 	fsys       fs.FS
 	updFeed    = make(chan string, 1)
+	hashes     = make(map[string]string)
 	feedstatus = make(map[string]string)
 	statuslock sync.RWMutex
 	wg         sync.WaitGroup
@@ -87,6 +89,13 @@ func serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if p == "update" || strings.HasPrefix(p, "update/") {
+		// update news
+		http.Redirect(w, r, "/news", http.StatusTemporaryRedirect)
+		updateFeed("")
+		return
+	}
+
 	if f, err := fs.Stat(fsys, p); err == nil {
 		if f.IsDir() {
 			http.FileServer(http.FS(fsys)).ServeHTTP(w, r)
@@ -132,13 +141,22 @@ func getFeedStatus(hash string) (string, bool) {
 	return s, ok
 }
 
+func getHash(u string) string {
+	h, ok := hashes[u]
+	if !ok {
+		h = fmt.Sprintf("%x", md5.Sum([]byte(u)))
+		hashes[u] = h
+	}
+	return h
+}
+
 func fetchFeed(u string) {
 	// download rss into the file
 	var rss []byte
 	hash := fmt.Sprintf("%x", md5.Sum([]byte(u)))
 	setFeedStatus(hash, "...")
 
-	//time.Sleep(4 * time.Second) // make loading artificially slow to test things
+	time.Sleep(time.Duration(rand.Intn(5)) * time.Second) // make loading artificially slow to test things
 
 	client := http.Client{
 		CheckRedirect: func(r *http.Request, via []*http.Request) error {
@@ -171,20 +189,18 @@ func fetchFeed(u string) {
 }
 
 func feedUpdater() {
-	for u := range updFeed {
-		if u != "" {
-			fetchFeed(u)
-			continue
-		}
-
+	for _ = range updFeed {
 		if err := os.RemoveAll(cachedir); err != nil {
 			log.Println("Unable to remove cache dir: %s", err)
 			continue
 		}
+
 		if err := os.MkdirAll(cachedir, 0755); err != nil {
 			log.Println("Unable to make cache dir: %s", err)
 			continue
 		}
+
+		setFeedStatus("", "...")
 
 		// refresh feeds
 		for _, fu := range feeds {
@@ -196,6 +212,8 @@ func feedUpdater() {
 		}
 
 		wg.Wait()
+
+		setFeedStatus("", "OK")
 	}
 }
 
@@ -208,7 +226,7 @@ func updateFeed(u string) {
 }
 
 func main() {
-	flag.IntVar(&port, "p", 8080, "port")
+	flag.IntVar(&port, "p", 47677, "port")
 	flag.Parse()
 
 	var err error
@@ -240,44 +258,16 @@ func main() {
 
 	feedsfile = filepath.Join(confdir, "feeds.opml")
 
-	err = importOPML(feedsfile)
+	err = importOPML("feeds.opml")
 	if err != nil {
 		log.Println("Unable to import OPML from feeds file:", err)
 	}
 
 	go feedUpdater()
-	updateFeed("")
+	//updateFeed("")
 
 	http.Handle("/", gzip.DefaultHandler().WrapHandler(http.HandlerFunc(serve)))
 	log.Println("Server started on 127.0.0.1:" + strconv.Itoa(port))
 
 	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(port), nil))
 }
-
-/*
-func serve() {
-		case "a":
-			fmt.Print("url: ")
-			fmt.Scanln(&str)
-			if !addUrl(str) {
-				log.Println("Url already exists")
-				continue
-			}
-			err := saveFeeds()
-			if err != nil {
-				log.Println("Unable to save the feeds")
-				continue
-			}
-			fmt.Println("Feed added in", str)
-		case "s":
-			err := saveFeeds()
-			if err != nil {
-				log.Println("Unable to save feeds:", err)
-				continue
-			}
-			fmt.Println("ok")
-		case "c":
-			feeds = nil
-	}
-}
-*/

@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/md5"
 	"fmt"
+	"html"
 	"net/http"
 	"path/filepath"
 )
@@ -18,7 +19,7 @@ func serveIndex(w http.ResponseWriter, r *http.Request) {
 		if ok && s == "OK" { // load title
 			feed, err := feedFromFile(filepath.Join(cachedir, hash+".rss"))
 			if err != nil {
-				page += fmt.Sprintf(`<td><abbr title="%s">ERR</abbr></td>`+"\n", err)
+				page += fmt.Sprintf(`<td><abbr title="%s">ERR</abbr></td>`+"\n", html.EscapeString(err.Error()))
 				page += fmt.Sprintf("<td>%s</td>\n", title)
 				page += fmt.Sprintf("<td>%s</td>\n", fu)
 				page += "</tr>\n"
@@ -28,12 +29,11 @@ func serveIndex(w http.ResponseWriter, r *http.Request) {
 		}
 		if ok {
 			if s != "..." && s != "OK" {
-				s = "ERR" // do not display the whole error message
-				// TODO: maybe a tooltip?
+				s = fmt.Sprintf(`<abbr title="%s">ERR</abbr>`, html.EscapeString(s))
 			}
 			page += fmt.Sprintf("<td>%s</td>\n", s)
 		} else {
-			page += fmt.Sprintf(`<td><a href="/news/%s?update">UPDATE</a></td>`+"\n", hash)
+			page += fmt.Sprintf("<td>OUT OF DATE</td>\n")
 		}
 		page += fmt.Sprintf("<td>%s</td>\n", title)
 		page += fmt.Sprintf("<td>%s</td>\n", fu)

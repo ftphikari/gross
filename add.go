@@ -1,8 +1,12 @@
 package main
 
+import "sync"
+
+var addLock sync.Mutex
+
 func addUrl(u string) (ok bool) {
-	lock.Lock()
-	defer lock.Unlock()
+	addLock.Lock()
+	defer addLock.Unlock()
 
 	// check if already exists
 	for _, fu := range feeds {

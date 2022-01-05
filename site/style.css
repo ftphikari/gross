@@ -33,15 +33,20 @@ nav ul li[sep]::before { content: "|"; }
 nav ul li a { text-decoration-color: transparent; }
 nav ul li a:hover { text-decoration-color: var(--fg); color: var(--fg); }
 
-details { display: inline-flex; border: 1px solid var(--fg); }
+details { display: flex; border: 1px solid var(--fg); margin-top: 10px; }
 details summary { cursor: pointer; padding: 2px 4px; }
 details summary:hover, details summary:hover * { color: var(--bg); background: var(--fg); }
 details[open] summary { border-bottom: 1px solid var(--fg); }
+details > * { padding: 7px; }
 
-table, th, td { border-collapse: collapse; padding: 4px; }
+blockquote { display: block; background: var(--quote-bg); margin: 7px; padding: 7px; padding-left: 10px; border: none; border-color: var(--quote-border); border-left: 7px solid var(--quote-border); word-break: break-word; }
+blockquote::before { content: ""; pointer-events: none; }
+blockquote img { margin-right: 10px; float: left; }
+blockquote cite { float: right; }
+
 table { border: 2px solid var(--fg); margin: 10px; }
-th, td { border-left: 1px solid var(--fg); border-right: 1px solid var(--fg); text-align: left; }
-th { border-bottom: 2px solid var(--fg); }
+th, td { padding: 10px; border: 1px solid var(--fg); text-align: left; }
+th { border: 2px solid var(--fg); }
 
 @media(max-width: 800px) {
  nav ul { display: none; }
