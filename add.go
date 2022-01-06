@@ -1,10 +1,15 @@
 package main
 
 import (
+	"log"
 	"sync"
 )
 
 var addLock sync.Mutex
+
+func removeFeed(slice []Feed, s int) []Feed {
+	return append(slice[:s], slice[s+1:]...)
+}
 
 func addUrl(af Feed) (ok bool) {
 	addLock.Lock()
@@ -18,25 +23,33 @@ func addUrl(af Feed) (ok bool) {
 	}
 
 	feeds = append(feeds, af)
-
+	err := exportOPML("feeds.opml") // TODO: change to feedsfile when added export and import
+	if err != nil {
+		log.Println("Unable to save the feeds file:", err)
+	}
 	return true
 }
 
-/*
-func serveAdd(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	u, ok := r.Form["u"]
-	if !ok {
+func delHash(hash string) (ok bool) {
+	addLock.Lock()
+	defer addLock.Unlock()
+
+	// check if exists
+	index := -1
+	for i, f := range feeds {
+		if hash == getHash(f.Url) {
+			index = i
+			break
+		}
 	}
-	if u == "" {
-		w.Write([]byte("supply url with ?u={}"))
-		return
+	if index < 0 {
+		return false
 	}
-	ok := addUrl(u)
-	if ok {
-		w.Write([]byte(u + " added"))
-	} else {
-		w.Write([]byte(u + " already exists"))
+
+	feeds = removeFeed(feeds, index)
+	err := exportOPML("feeds.opml") // TODO: change to feedsfile when added export and import
+	if err != nil {
+		log.Println("Unable to save the feeds file:", err)
 	}
+	return true
 }
-*/

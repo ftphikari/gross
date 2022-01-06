@@ -12,6 +12,26 @@ import (
 
 func serveFeeds(w http.ResponseWriter, r *http.Request) {
 	page := ""
+
+	r.ParseForm()
+	addurl := r.Form.Get("add")
+	if addurl != "" {
+		var f Feed
+		f.Url = addurl
+		ok := addUrl(f)
+		if !ok {
+			page += fmt.Sprintf("<h2>Feed with this URL already exists</h2>\n<hr>\n")
+		}
+	}
+
+	delhash := r.Form.Get("delete")
+	if delhash != "" {
+		ok := delHash(delhash)
+		if !ok {
+			page += fmt.Sprintf("<h2>Feed with this hash does not exist</h2>\n<hr>\n")
+		}
+	}
+
 	page += fmt.Sprintf("<h1>Feeds [%d]</h1>\n<table>\n", len(feeds))
 	for _, f := range feeds {
 		page += "<tr>\n"
@@ -44,8 +64,10 @@ func serveFeeds(w http.ResponseWriter, r *http.Request) {
 		page += fmt.Sprintf("<td>[%s]</td>\n", status)
 		page += fmt.Sprintf("<td>%s</td>\n", title)
 		page += fmt.Sprintf("<td>%s</td>\n", f.Url)
+		page += fmt.Sprintf(`<td><a href="/feeds?delete=%s">DEL</a></td>`+"\n", hash)
 		page += "</tr>\n"
 	}
 	page += "</table>\n"
-	serveBase(w, r, page)
+
+	serveBase(w, r, page, "Feeds")
 }

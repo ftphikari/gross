@@ -19,13 +19,28 @@ type News struct {
 	Hash     string
 }
 
+func getAuthorsString(au []*gofeed.Person) (authors string) {
+	for i, a := range au {
+		if a.Name != "" {
+			authors += a.Name
+		}
+		if a.Email != "" {
+			authors += "<" + a.Email + ">"
+		}
+		if i != len(au)-1 {
+			authors += ", "
+		}
+	}
+	return
+}
+
 func serveNewsItem(w http.ResponseWriter, r *http.Request, feedhash, hash string) {
 	page := ""
 
 	s, ok := getFeedStatus(feedhash)
 	if ok && s == "..." {
 		page += "<h1>Feed of this item is currently updating</h1>"
-		serveBase(w, r, page)
+		serveBase(w, r, page, "")
 		return
 	}
 
@@ -34,7 +49,7 @@ func serveNewsItem(w http.ResponseWriter, r *http.Request, feedhash, hash string
 	feed, err := feedFromFile(filepath.Join(cachedir, feedhash+".rss"))
 	if err != nil {
 		page += "<h1>Unable to read the feed file</h1>\n"
-		serveBase(w, r, page)
+		serveBase(w, r, page, "")
 		return
 	}
 	for _, it := range feed.Items {
@@ -64,18 +79,7 @@ func serveNewsItem(w http.ResponseWriter, r *http.Request, feedhash, hash string
 	}
 
 	page += fmt.Sprintf("<h1>%s</h1>\n", item.Title)
-	var authors string
-	for i, a := range item.Authors {
-		if a.Name != "" {
-			authors += a.Name
-		}
-		if a.Email != "" {
-			authors += "<" + a.Email + ">"
-		}
-		if i != len(item.Authors)-1 {
-			authors += ", "
-		}
-	}
+	authors := getAuthorsString(item.Authors)
 	page += fmt.Sprintf("<p><small>%s", item.PublishedParsed.Format("2006-01-02 15:04"))
 	if authors != "" {
 		page += fmt.Sprintf(" | %s", authors)
@@ -87,43 +91,55 @@ func serveNewsItem(w http.ResponseWriter, r *http.Request, feedhash, hash string
 	} else {
 		page += fmt.Sprintf("<p>%s</p>\n", item.Content)
 	}
-	serveBase(w, r, page)
+
+	serveBase(w, r, page, item.Title)
 }
 
-func getNews(news []News, from int) (page string) {
+func getNews(name string, news []News, from int) (page string) {
 	sort.SliceStable(news, func(i, j int) bool {
 		return news[i].Item.PublishedParsed.After(
 			*news[j].Item.PublishedParsed,
 		)
 	})
 
-	page += fmt.Sprintf("<h1>News [%d]</h1>\n", len(news))
+	{
+		title := name
+		if name == "" {
+			title = "News"
+		}
+		page += fmt.Sprintf("<h1>[%d] %s</h1>\n", len(news), title)
+	}
 
-	page += "<table>\n"
 	early_exit := false
 	for i, it := range news {
 		if i < from {
 			continue
 		}
 
-		page += "<tr><td>\n"
-
+		page += "<blockquote>\n"
 		date := it.Item.PublishedParsed.Format("2006-01-02 15:04")
 		title := fmt.Sprintf(`<a href="/%s/%s">%s</a>`, it.FeedHash, it.Hash, it.Item.Title)
-		page += fmt.Sprintf("<h4>%s</h4>\n", title)
-		page += fmt.Sprintf(`<small>%s | <a href="/%s">%s</a>`, date, it.FeedHash, it.Feed.Title)
+		authors := getAuthorsString(it.Item.Authors)
+		page += fmt.Sprintf("<h3>%s</h3>\n", title)
+		page += fmt.Sprintf(`<small>%s`, date)
+		if authors != "" {
+			page += fmt.Sprintf(` | %s`, authors)
+		}
+		if name == "" {
+			page += fmt.Sprintf(` | <a href="/%s">%s</a>`, it.FeedHash, it.Feed.Title)
+		}
 		if it.Item.Content != "" && it.Item.Description != "" {
 			page += fmt.Sprintf("\n<blockquote>%s</blockquote>\n", it.Item.Description)
 		}
+		page += fmt.Sprintf(`</small>`)
 
-		page += "</td></tr>\n"
+		page += "</blockquote>\n"
 
 		if i >= from+MaxNews {
 			early_exit = true
 			break
 		}
 	}
-	page += "</table>\n"
 
 	if from >= MaxNews {
 		page += fmt.Sprintf(`<a href="?from=%d">Prev</a> `, from-MaxNews)
@@ -153,42 +169,35 @@ func serveNewsFeed(w http.ResponseWriter, r *http.Request, feedhash string) {
 	}
 	if u == "" {
 		page += fmt.Sprintf("<h1>Feed with hash %s does not exist</h1>\n", feedhash)
-		serveBase(w, r, page)
+		serveBase(w, r, page, "")
 		return
 	}
 
 	s, ok := getFeedStatus(feedhash)
 	if ok && s == "..." {
-		page += fmt.Sprintf("<h1>Feed %s is still updating</h1>\n", u)
-		serveBase(w, r, page)
+		page += fmt.Sprintf("<h1>Feed is still updating</h1>\n")
+		serveBase(w, r, page, "")
 		return
 	}
 
 	var news []News
-	for _, f := range feeds {
-		if f.Url != u {
-			continue
-		}
-
-		feed, err := feedFromFile(filepath.Join(cachedir, feedhash+".rss"))
-		if err != nil {
-			page += fmt.Sprintf("<h1>Unable to load the feed %s</h1>\n", u)
-			serveBase(w, r, page)
-			return
-		}
-		for _, it := range feed.Items {
-			ithash := getHash(it.Title + it.Link)
-			news = append(news, News{feed, feedhash, it, ithash})
-		}
-
-		break
+	feed, err := feedFromFile(filepath.Join(cachedir, feedhash+".rss"))
+	if err != nil {
+		page += fmt.Sprintf("<h1>Unable to load the feed %s</h1>\n", u)
+		serveBase(w, r, page, "")
+		return
+	}
+	for _, it := range feed.Items {
+		ithash := getHash(it.Title + it.Link)
+		news = append(news, News{feed, feedhash, it, ithash})
 	}
 
 	if from > len(news)-1 || from < 0 {
 		from = 0
 	}
-	page += getNews(news, from)
-	serveBase(w, r, page)
+	page += getNews(feed.Title, news, from)
+
+	serveBase(w, r, page, feed.Title)
 }
 
 func serveNews(w http.ResponseWriter, r *http.Request) {
@@ -213,10 +222,13 @@ func serveNews(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 		}
-		page += fmt.Sprintf("<h1>News are updating [%d/%d]</h1>\n", len(feeds)-n, len(feeds)-1)
-		serveBase(w, r, page)
+		page += fmt.Sprintf("<h1>Feeds are updating [%d/%d]</h1>\n", len(feeds)-n, len(feeds)-1)
+
+		serveBase(w, r, page, "Updating..")
 		return
 	}
+
+	page += fmt.Sprintf(`<h2><a href="/refresh">Refresh</a></h2>` + "\n<hr>\n")
 
 	// load news
 	var news []News
@@ -241,6 +253,7 @@ func serveNews(w http.ResponseWriter, r *http.Request) {
 	if from > len(news)-1 || from < 0 {
 		from = 0
 	}
-	page += getNews(news, from)
-	serveBase(w, r, page)
+	page += getNews("", news, from)
+
+	serveBase(w, r, page, "News")
 }

@@ -36,7 +36,7 @@ var (
 	feeds      []Feed
 	port       int
 	fsys       fs.FS
-	updFeed    = make(chan string, 1)
+	refFeed    = make(chan string, 1)
 	hashes     = make(map[string]string)
 	feedstatus = make(map[string]string)
 	statuslock sync.RWMutex
@@ -116,8 +116,8 @@ func fetchFeed(u string) {
 	return
 }
 
-func feedUpdater() {
-	for _ = range updFeed {
+func feedRefresher() {
+	for _ = range refFeed {
 		if err := os.RemoveAll(cachedir); err != nil {
 			log.Println("Unable to remove cache dir: %s", err)
 			continue
@@ -130,7 +130,6 @@ func feedUpdater() {
 
 		setFeedStatus("", "...")
 
-		// refresh feeds
 		for _, f := range feeds {
 			wg.Add(1)
 			go func(u string) {
@@ -145,15 +144,15 @@ func feedUpdater() {
 	}
 }
 
-func updateFeed(u string) {
+func refreshFeed(u string) {
 	select {
-	case updFeed <- u:
+	case refFeed <- u:
 	default:
-		log.Println("failed to sent an update: channel is full")
+		log.Println("failed to sent an refresh: channel is full")
 	}
 }
 
-func serveBase(w http.ResponseWriter, r *http.Request, page string) {
+func serveBase(w http.ResponseWriter, r *http.Request, page, title string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	data, err := fs.ReadFile(fsys, "base.htm")
@@ -168,10 +167,18 @@ func serveBase(w http.ResponseWriter, r *http.Request, page string) {
 		return
 	}
 
+	if title != "" {
+		title = title + " | GRoSS"
+	} else {
+		title = "GRoSS"
+	}
+
 	st := struct {
-		Page string
+		Page  string
+		Title string
 	}{
 		page,
+		title,
 	}
 	if err = t.ExecuteTemplate(w, "base", st); err != nil {
 		log.Println("Unable to execute template:", err)
@@ -209,9 +216,9 @@ func serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if p == "update" || strings.HasPrefix(p, "update/") {
+	if p == "refresh" || strings.HasPrefix(p, "refresh/") {
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
-		updateFeed("")
+		refreshFeed("")
 		return
 	}
 
@@ -270,7 +277,7 @@ func main() {
 		log.Fatal("Unable to make config dir:", err)
 	}
 
-	feedsfile = filepath.Join(confdir, "feeds.opml") // TODO: json? add something to it?
+	feedsfile = filepath.Join(confdir, "feeds.opml")
 
 	err = importOPML("feeds.opml")
 	if err != nil {
@@ -283,8 +290,8 @@ func main() {
 		}
 	}
 
-	go feedUpdater()
-	//updateFeed("")
+	go feedRefresher()
+	//refreshFeed("")
 
 	http.Handle("/", gzip.DefaultHandler().WrapHandler(http.HandlerFunc(serve)))
 	log.Println("Server started on 127.0.0.1:" + strconv.Itoa(port))
