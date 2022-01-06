@@ -23,11 +23,17 @@ import (
 	"github.com/nanmu42/gzip"
 )
 
+type Feed struct {
+	Url          string
+	Title        string
+	AutoRedirect bool
+}
+
 var (
 	confdir    string
 	cachedir   string
 	feedsfile  string
-	feeds      []string
+	feeds      []Feed
 	port       int
 	fsys       fs.FS
 	updFeed    = make(chan string, 1)
@@ -48,84 +54,6 @@ func feedFromFile(filename string) (*gofeed.Feed, error) {
 	defer f.Close()
 
 	return gofeed.NewParser().Parse(f)
-}
-
-func serveBase(w http.ResponseWriter, r *http.Request, page string) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-
-	data, err := fs.ReadFile(fsys, "base.htm")
-	if err != nil {
-		log.Println("Unable to read template:", err)
-		return
-	}
-
-	t, err := template.New("base").Parse(string(data))
-	if err != nil {
-		log.Println("Unable to parse template:", err)
-		return
-	}
-
-	st := struct {
-		Page string
-	}{
-		page,
-	}
-	if err = t.ExecuteTemplate(w, "base", st); err != nil {
-		log.Println("Unable to execute template:", err)
-		return
-	}
-}
-
-func serve(w http.ResponseWriter, r *http.Request) {
-	p := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
-
-	if p == "" {
-		serveIndex(w, r)
-		return
-	}
-
-	if p == "news" || strings.HasPrefix(p, "news/") {
-		serveNews(w, r)
-		return
-	}
-
-	if p == "update" || strings.HasPrefix(p, "update/") {
-		// update news
-		http.Redirect(w, r, "/news", http.StatusTemporaryRedirect)
-		updateFeed("")
-		return
-	}
-
-	if f, err := fs.Stat(fsys, p); err == nil {
-		if f.IsDir() {
-			http.FileServer(http.FS(fsys)).ServeHTTP(w, r)
-			return
-		}
-
-		if strings.HasSuffix(p, ".css") {
-			w.Header().Set("Cache-Control", "public, max-age=86400")
-		} else {
-			w.Header().Set("Cache-Control", "public, max-age=604800")
-		}
-
-		http.FileServer(http.FS(fsys)).ServeHTTP(w, r)
-		return
-	}
-
-	/*
-		if p == "search" || strings.HasPrefix(p, "search/") {
-			serveSearch(w, r)
-			return
-		}
-
-		if _, err := fs.Stat(fsys, p + ".tei"); err != nil {
-			serve404(w, r)
-			log.Println("serve:", p, "not found.", readUserIP(r))
-			return
-		}
-
-		servePage(w, r, p+".tei")
-	*/
 }
 
 func setFeedStatus(hash, s string) {
@@ -203,12 +131,12 @@ func feedUpdater() {
 		setFeedStatus("", "...")
 
 		// refresh feeds
-		for _, fu := range feeds {
+		for _, f := range feeds {
 			wg.Add(1)
 			go func(u string) {
 				fetchFeed(u)
 				wg.Done()
-			}(fu)
+			}(f.Url)
 		}
 
 		wg.Wait()
@@ -223,6 +151,92 @@ func updateFeed(u string) {
 	default:
 		log.Println("failed to sent an update: channel is full")
 	}
+}
+
+func serveBase(w http.ResponseWriter, r *http.Request, page string) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	data, err := fs.ReadFile(fsys, "base.htm")
+	if err != nil {
+		log.Println("Unable to read template:", err)
+		return
+	}
+
+	t, err := template.New("base").Parse(string(data))
+	if err != nil {
+		log.Println("Unable to parse template:", err)
+		return
+	}
+
+	st := struct {
+		Page string
+	}{
+		page,
+	}
+	if err = t.ExecuteTemplate(w, "base", st); err != nil {
+		log.Println("Unable to execute template:", err)
+		return
+	}
+}
+
+func serve(w http.ResponseWriter, r *http.Request) {
+	p := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
+
+	if p == "" {
+		serveNews(w, r)
+		return
+	}
+
+	// serve embed files
+	if f, err := fs.Stat(fsys, p); err == nil {
+		if f.IsDir() {
+			http.FileServer(http.FS(fsys)).ServeHTTP(w, r)
+			return
+		}
+
+		if strings.HasSuffix(p, ".css") {
+			w.Header().Set("Cache-Control", "public, max-age=86400")
+		} else {
+			w.Header().Set("Cache-Control", "public, max-age=604800")
+		}
+
+		http.FileServer(http.FS(fsys)).ServeHTTP(w, r)
+		return
+	}
+
+	if p == "feeds" || strings.HasPrefix(p, "feeds/") {
+		serveFeeds(w, r)
+		return
+	}
+
+	if p == "update" || strings.HasPrefix(p, "update/") {
+		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		updateFeed("")
+		return
+	}
+
+	feedhash, hash := path.Split(p)
+	if feedhash == "" {
+		serveNewsFeed(w, r, hash)
+	} else {
+		feedhash = strings.TrimPrefix(path.Clean(feedhash), "/")
+		serveNewsItem(w, r, feedhash, hash)
+	}
+
+	/*
+		if p == "search" || strings.HasPrefix(p, "search/") {
+			serveSearch(w, r)
+			return
+		}
+
+		if _, err := fs.Stat(fsys, p + ".tei"); err != nil {
+			serve404(w, r)
+			log.Println("serve:", p, "not found.", readUserIP(r))
+			return
+		}
+
+		servePage(w, r, p+".tei")
+	*/
 }
 
 func main() {
@@ -256,11 +270,17 @@ func main() {
 		log.Fatal("Unable to make config dir:", err)
 	}
 
-	feedsfile = filepath.Join(confdir, "feeds.opml")
+	feedsfile = filepath.Join(confdir, "feeds.opml") // TODO: json? add something to it?
 
 	err = importOPML("feeds.opml")
 	if err != nil {
 		log.Println("Unable to import OPML from feeds file:", err)
+	}
+
+	for i, f := range feeds {
+		if f.Url == "https://www.phoronix.com/rss.php" {
+			feeds[i].AutoRedirect = true
+		}
 	}
 
 	go feedUpdater()

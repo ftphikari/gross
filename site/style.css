@@ -17,8 +17,9 @@
 }
 
 body { background: var(--bg); color: var(--fg); overflow-y: scroll; font-family: Helvetica; margin: 0px; }
-main { padding: 7px; max-width: 1024px; margin-left: auto; margin-right: auto; }
-img { max-width: 100%; }
+img, video { height: 100%; }
+main { padding: 7px; max-width: 1024px !important; height: auto; margin-left: auto; margin-right: auto; }
+main * { max-width: 100% !important; }
 a { color: var(--fg); overflow-wrap: anywhere; font-weight: bold; text-decoration: underline; text-decoration-color: var(--fg); text-decoration-thickness: 2px; text-underline-offset: 2px; }
 a:visited { color: var(--fg-visited); text-decoration-color: var(--fg-visited); }
 a:hover { color: var(--fg-dim); text-decoration-color: var(--fg-dim); }

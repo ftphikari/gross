@@ -2,13 +2,10 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
-	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
-	"strings"
 
 	"github.com/mmcdole/gofeed"
 )
@@ -49,6 +46,23 @@ func serveNewsItem(w http.ResponseWriter, r *http.Request, feedhash, hash string
 		break
 	}
 
+	if item.Content == "" && item.Description == "" {
+		http.Redirect(w, r, item.Link, http.StatusTemporaryRedirect)
+		return
+	}
+
+	// check for autoredirect urls
+	for _, f := range feeds {
+		h := getHash(f.Url)
+		if feedhash == h {
+			if f.AutoRedirect {
+				http.Redirect(w, r, item.Link, http.StatusTemporaryRedirect)
+				return
+			}
+			break
+		}
+	}
+
 	page += fmt.Sprintf("<h1>%s</h1>\n", item.Title)
 	var authors string
 	for i, a := range item.Authors {
@@ -66,10 +80,10 @@ func serveNewsItem(w http.ResponseWriter, r *http.Request, feedhash, hash string
 	if authors != "" {
 		page += fmt.Sprintf(" | %s", authors)
 	}
-	page += fmt.Sprintf(` | <a href="/news/%s">%s</a>`, feedhash, feed.Title)
+	page += fmt.Sprintf(` | <a href="/%s">%s</a>`, feedhash, feed.Title)
 	page += fmt.Sprintf(` | <a href="%s">[Original]</a></small></p>`+"\n", item.Link)
 	if item.Content == "" {
-		page += fmt.Sprintf("<p>%s</p>", item.Description)
+		page += fmt.Sprintf("<p>%s</p>\n", item.Description)
 	} else {
 		page += fmt.Sprintf("<p>%s</p>\n", item.Content)
 	}
@@ -95,10 +109,9 @@ func getNews(news []News, from int) (page string) {
 		page += "<tr><td>\n"
 
 		date := it.Item.PublishedParsed.Format("2006-01-02 15:04")
-		title := fmt.Sprintf(`<a href="/news/%s/%s">%s</a>`, it.FeedHash, it.Hash, it.Item.Title)
+		title := fmt.Sprintf(`<a href="/%s/%s">%s</a>`, it.FeedHash, it.Hash, it.Item.Title)
 		page += fmt.Sprintf("<h4>%s</h4>\n", title)
-		page += fmt.Sprintf(`<small>%s | <a href="/news/%s">%s</a>`, date, it.FeedHash, it.Feed.Title)
-		page += fmt.Sprintf(` | <a href="%s">[Original]</a></small>`+"\n", it.Item.Link)
+		page += fmt.Sprintf(`<small>%s | <a href="/%s">%s</a>`, date, it.FeedHash, it.Feed.Title)
 		if it.Item.Content != "" && it.Item.Description != "" {
 			page += fmt.Sprintf("\n<blockquote>%s</blockquote>\n", it.Item.Description)
 		}
@@ -122,23 +135,29 @@ func getNews(news []News, from int) (page string) {
 	return
 }
 
-func serveNewsFeed(w http.ResponseWriter, r *http.Request, hash string, from int) {
+func serveNewsFeed(w http.ResponseWriter, r *http.Request, feedhash string) {
+	r.ParseForm()
+	from, err := strconv.Atoi(r.Form.Get("from"))
+	if err != nil {
+		from = 0
+	}
+
 	page := ""
 	u := ""
-	for _, fu := range feeds {
-		h := getHash(fu)
-		if h == hash {
-			u = fu
+	for _, f := range feeds {
+		h := getHash(f.Url)
+		if h == feedhash {
+			u = f.Url
 			break
 		}
 	}
 	if u == "" {
-		page += fmt.Sprintf("<h1>Feed with hash %s does not exist</h1>\n", hash)
+		page += fmt.Sprintf("<h1>Feed with hash %s does not exist</h1>\n", feedhash)
 		serveBase(w, r, page)
 		return
 	}
 
-	s, ok := getFeedStatus(hash)
+	s, ok := getFeedStatus(feedhash)
 	if ok && s == "..." {
 		page += fmt.Sprintf("<h1>Feed %s is still updating</h1>\n", u)
 		serveBase(w, r, page)
@@ -146,20 +165,22 @@ func serveNewsFeed(w http.ResponseWriter, r *http.Request, hash string, from int
 	}
 
 	var news []News
-	for _, fu := range feeds {
-		if fu != u {
+	for _, f := range feeds {
+		if f.Url != u {
 			continue
 		}
 
-		feed, err := feedFromFile(filepath.Join(cachedir, hash+".rss"))
+		feed, err := feedFromFile(filepath.Join(cachedir, feedhash+".rss"))
 		if err != nil {
-			log.Printf("Unable to load feed from file: %s\n", err)
-			continue
+			page += fmt.Sprintf("<h1>Unable to load the feed %s</h1>\n", u)
+			serveBase(w, r, page)
+			return
 		}
 		for _, it := range feed.Items {
 			ithash := getHash(it.Title + it.Link)
-			news = append(news, News{feed, hash, it, ithash})
+			news = append(news, News{feed, feedhash, it, ithash})
 		}
+
 		break
 	}
 
@@ -179,24 +200,12 @@ func serveNews(w http.ResponseWriter, r *http.Request) {
 
 	page := ""
 
-	p := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
-	lvl1, lvl2 := path.Split(p)
-	if lvl2 != "news" {
-		lvl3 := path.Base(lvl1)
-		if lvl3 == "news" {
-			serveNewsFeed(w, r, lvl2, from)
-		} else {
-			serveNewsItem(w, r, lvl3, lvl2)
-		}
-		return
-	}
-
 	// if currently updating
 	upd, ok := getFeedStatus("")
 	if ok && upd == "..." {
 		n := 0
-		for _, fu := range feeds {
-			hash := getHash(fu)
+		for _, f := range feeds {
+			hash := getHash(f.Url)
 
 			s, ok := getFeedStatus(hash)
 			if ok && s == "..." {
@@ -211,8 +220,8 @@ func serveNews(w http.ResponseWriter, r *http.Request) {
 
 	// load news
 	var news []News
-	for _, fu := range feeds {
-		hash := getHash(fu)
+	for _, f := range feeds {
+		hash := getHash(f.Url)
 
 		s, ok := getFeedStatus(hash)
 		if ok && s != "OK" {

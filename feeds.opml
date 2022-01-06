@@ -90,6 +90,6 @@
 	<outline type="rss" title="The Old New Things" text="The Old New Things" xmlUrl="https://devblogs.microsoft.com/oldnewthing/feed"/>
 	<outline type="rss" title="xkcd.com" text="xkcd.com" xmlUrl="https://xkcd.com/atom.xml"/>
 	<outline text="non-rss url" xmlUrl="https://xkcd.com/"/>
-	<outline text="nonsense url" xmlUrl="https://nonsense"/>
+	<outline text="?" xmlUrl="https://nonsense"/>
 </body>
 </opml>

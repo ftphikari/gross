@@ -1,21 +1,23 @@
 package main
 
-import "sync"
+import (
+	"sync"
+)
 
 var addLock sync.Mutex
 
-func addUrl(u string) (ok bool) {
+func addUrl(af Feed) (ok bool) {
 	addLock.Lock()
 	defer addLock.Unlock()
 
 	// check if already exists
-	for _, fu := range feeds {
-		if fu == u {
+	for _, f := range feeds {
+		if f.Url == af.Url {
 			return false
 		}
 	}
 
-	feeds = append(feeds, u)
+	feeds = append(feeds, af)
 
 	return true
 }

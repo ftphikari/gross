@@ -7,9 +7,11 @@ import (
 )
 
 type Outline struct {
-	Outlines []Outline `xml:"outline",omitempty`
-	Text     string    `xml:"text,attr,omitempty"`
-	XmlUrl   string    `xml:"xmlUrl,attr"`
+	Outlines     []Outline `xml:"outline",omitempty`
+	Title        string    `xml:"title,attr,omitempty"`
+	Text         string    `xml:"text,attr,omitempty"`
+	XmlUrl       string    `xml:"xmlUrl,attr"`
+	AutoRedirect bool      `xml:"autoredirect,attr"`
 }
 
 type OPML struct {
@@ -21,12 +23,20 @@ type OPML struct {
 
 func addOutlines(out []Outline) {
 	for _, o := range out {
+		var f Feed
+		f.Title = "?"
 		if len(o.Outlines) > 0 {
 			addOutlines(o.Outlines)
 			continue
 		}
+		if len(o.Title) > 0 {
+			f.Title = o.Title
+		} else if len(o.Text) > 0 {
+			f.Title = o.Text
+		}
 		if len(o.XmlUrl) > 0 {
-			addUrl(o.XmlUrl)
+			f.Url = o.XmlUrl
+			addUrl(f)
 		}
 	}
 }
@@ -51,8 +61,13 @@ func exportOPML(f string) error {
 	var o OPML
 	o.Version = "2.0"
 	o.Title = "OPML export from GROSS"
-	for _, u := range feeds {
-		o.Outlines = append(o.Outlines, Outline{XmlUrl: u})
+	for _, f := range feeds {
+		var out Outline
+		out.Title = f.Title
+		out.Text = f.Title
+		out.XmlUrl = f.Url
+		out.AutoRedirect = f.AutoRedirect
+		o.Outlines = append(o.Outlines, out)
 	}
 
 	b, err := xml.Marshal(o)
