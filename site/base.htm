@@ -5,7 +5,11 @@
 <title>{{.Title}}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta charset="utf-8">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
 <link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="/fontawesome-stripped/css/fontawesome.css">
+<link rel="stylesheet" href="/fontawesome-stripped/css/solid.css">
+<link rel="stylesheet" href="/fontawesome-stripped/css/brands.css">
 </head>
 
 <body>
@@ -13,9 +17,11 @@
 <nav>
 
 <ul>
-<li><a href="/">News</a></li>
+<li><a href="/refresh" title="Refresh"><i class="fas fa-sync"></i></a></li>
+<li><a href="/" title="News">News</a></li>
+<li><a href="/feeds" title="Feeds">Feeds</a></li>
 <li sep></li>
-<li><a href="/feeds">Feeds</a></li>
+<li><a href="/export" title="Export">Export <i class="fas fa-upload"></i></a></li>
 </ul>
 
 </nav>

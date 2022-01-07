@@ -24,9 +24,8 @@ import (
 )
 
 type Feed struct {
-	Url          string
-	Title        string
-	AutoRedirect bool
+	Url   string
+	Title string
 }
 
 var (
@@ -222,6 +221,16 @@ func serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if p == "import" || strings.HasPrefix(p, "import/") {
+		serveImport(w, r)
+		return
+	}
+
+	if p == "export" || strings.HasPrefix(p, "export/") {
+		serveExport(w, r)
+		return
+	}
+
 	feedhash, hash := path.Split(p)
 	if feedhash == "" {
 		serveNewsFeed(w, r, hash)
@@ -278,15 +287,24 @@ func main() {
 	}
 
 	feedsfile = filepath.Join(confdir, "feeds.opml")
+	{
+		f, err := os.OpenFile(feedsfile, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f.Close()
 
-	err = importOPML("feeds.opml")
-	if err != nil {
-		log.Println("Unable to import OPML from feeds file:", err)
-	}
+		b, err := ioutil.ReadAll(f)
+		if err == nil {
+			err = importOPML(b)
+			if err != nil {
+				log.Println("Unable to load the saved file:", err)
+			}
+		}
 
-	for i, f := range feeds {
-		if f.Url == "https://www.phoronix.com/rss.php" {
-			feeds[i].AutoRedirect = true
+		err = saveFeed()
+		if err != nil {
+			log.Println(err)
 		}
 	}
 

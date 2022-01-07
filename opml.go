@@ -7,11 +7,10 @@ import (
 )
 
 type Outline struct {
-	Outlines     []Outline `xml:"outline",omitempty`
-	Title        string    `xml:"title,attr,omitempty"`
-	Text         string    `xml:"text,attr,omitempty"`
-	XmlUrl       string    `xml:"xmlUrl,attr"`
-	AutoRedirect bool      `xml:"autoredirect,attr"`
+	Outlines []Outline `xml:"outline",omitempty`
+	Title    string    `xml:"title,attr,omitempty"`
+	Text     string    `xml:"text,attr,omitempty"`
+	XmlUrl   string    `xml:"xmlUrl,attr"`
 }
 
 type OPML struct {
@@ -41,14 +40,9 @@ func addOutlines(out []Outline) {
 	}
 }
 
-func importOPML(filname string) error {
-	b, err := ioutil.ReadFile(filname)
-	if err != nil {
-		return fmt.Errorf("Unable to open OPML file: %s", err)
-	}
-
+func importOPML(data []byte) error {
 	var o OPML
-	if err := xml.Unmarshal(b, &o); err != nil {
+	if err := xml.Unmarshal(data, &o); err != nil {
 		return fmt.Errorf("Unable to unmarshal OPML: %s", err)
 	}
 
@@ -66,7 +60,6 @@ func exportOPML(f string) error {
 		out.Title = f.Title
 		out.Text = f.Title
 		out.XmlUrl = f.Url
-		out.AutoRedirect = f.AutoRedirect
 		o.Outlines = append(o.Outlines, out)
 	}
 

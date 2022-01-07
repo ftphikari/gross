@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"sync"
 )
@@ -9,6 +10,14 @@ var addLock sync.Mutex
 
 func removeFeed(slice []Feed, s int) []Feed {
 	return append(slice[:s], slice[s+1:]...)
+}
+
+func saveFeed() error {
+	err := exportOPML(feedsfile)
+	if err != nil {
+		return fmt.Errorf("Unable to save the feeds file:", err)
+	}
+	return nil
 }
 
 func addUrl(af Feed) (ok bool) {
@@ -23,9 +32,9 @@ func addUrl(af Feed) (ok bool) {
 	}
 
 	feeds = append(feeds, af)
-	err := exportOPML("feeds.opml") // TODO: change to feedsfile when added export and import
+	err := saveFeed()
 	if err != nil {
-		log.Println("Unable to save the feeds file:", err)
+		log.Println(err)
 	}
 	return true
 }
@@ -47,9 +56,9 @@ func delHash(hash string) (ok bool) {
 	}
 
 	feeds = removeFeed(feeds, index)
-	err := exportOPML("feeds.opml") // TODO: change to feedsfile when added export and import
+	err := saveFeed()
 	if err != nil {
-		log.Println("Unable to save the feeds file:", err)
+		log.Println(err)
 	}
 	return true
 }

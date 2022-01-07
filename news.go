@@ -3,11 +3,14 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/mmcdole/gofeed"
+	"golang.org/x/net/html"
 )
 
 const MaxNews = 50
@@ -31,6 +34,34 @@ func getAuthorsString(au []*gofeed.Person) (authors string) {
 			authors += ", "
 		}
 	}
+	return
+}
+
+func getDescription(s string) (desc string) {
+	domDocTest := html.NewTokenizer(strings.NewReader(s))
+	prevtok := domDocTest.Token()
+loopDomTest:
+	for {
+		tt := domDocTest.Next()
+		switch {
+		case tt == html.ErrorToken:
+			break loopDomTest // End of the document,  done
+		case tt == html.StartTagToken:
+			prevtok = domDocTest.Token()
+		case tt == html.TextToken:
+			if prevtok.Data == "script" {
+				continue
+			}
+
+			txt := strings.TrimSpace(html.UnescapeString(string(domDocTest.Text())))
+			if prevtok.Data == "p" || prevtok.Data == "div" {
+				return
+			} else {
+				desc += fmt.Sprintf("%s", txt)
+			}
+		}
+	}
+
 	return
 }
 
@@ -61,38 +92,13 @@ func serveNewsItem(w http.ResponseWriter, r *http.Request, feedhash, hash string
 		break
 	}
 
-	if item.Content == "" && item.Description == "" {
-		http.Redirect(w, r, item.Link, http.StatusTemporaryRedirect)
+	if item == nil {
+		page += "<h1>Unable to find the feed item</h1>\n"
+		serveBase(w, r, page, "")
 		return
 	}
 
-	// check for autoredirect urls
-	for _, f := range feeds {
-		h := getHash(f.Url)
-		if feedhash == h {
-			if f.AutoRedirect {
-				http.Redirect(w, r, item.Link, http.StatusTemporaryRedirect)
-				return
-			}
-			break
-		}
-	}
-
-	page += fmt.Sprintf("<h1>%s</h1>\n", item.Title)
-	authors := getAuthorsString(item.Authors)
-	page += fmt.Sprintf("<p><small>%s", item.PublishedParsed.Format("2006-01-02 15:04"))
-	if authors != "" {
-		page += fmt.Sprintf(" | %s", authors)
-	}
-	page += fmt.Sprintf(` | <a href="/%s">%s</a>`, feedhash, feed.Title)
-	page += fmt.Sprintf(` | <a href="%s">[Original]</a></small></p>`+"\n", item.Link)
-	if item.Content == "" {
-		page += fmt.Sprintf("<p>%s</p>\n", item.Description)
-	} else {
-		page += fmt.Sprintf("<p>%s</p>\n", item.Content)
-	}
-
-	serveBase(w, r, page, item.Title)
+	http.Redirect(w, r, item.Link, http.StatusTemporaryRedirect)
 }
 
 func getNews(name string, news []News, from int) (page string) {
@@ -107,7 +113,7 @@ func getNews(name string, news []News, from int) (page string) {
 		if name == "" {
 			title = "News"
 		}
-		page += fmt.Sprintf("<h1>[%d] %s</h1>\n", len(news), title)
+		page += fmt.Sprintf(`<h1>[%d] %s</h1>`+"\n", len(news), title)
 	}
 
 	early_exit := false
@@ -116,24 +122,41 @@ func getNews(name string, news []News, from int) (page string) {
 			continue
 		}
 
-		page += "<blockquote>\n"
-		date := it.Item.PublishedParsed.Format("2006-01-02 15:04")
+		page += "<feed>\n"
 		title := fmt.Sprintf(`<a href="/%s/%s">%s</a>`, it.FeedHash, it.Hash, it.Item.Title)
 		authors := getAuthorsString(it.Item.Authors)
-		page += fmt.Sprintf("<h3>%s</h3>\n", title)
-		page += fmt.Sprintf(`<small>%s`, date)
+		page += "<h3>"
+		u, err := url.Parse(it.Feed.Link)
+		if err == nil {
+			page += fmt.Sprintf(`<img alt src="https://%s/favicon.ico" />`+"\n", u.Hostname())
+		}
+		page += title
+		page += "</h3>\n"
+
+		date := it.Item.PublishedParsed.Format("2006-01-02 15:04")
+		page += fmt.Sprintf("<small>%s", date)
 		if authors != "" {
 			page += fmt.Sprintf(` | %s`, authors)
 		}
 		if name == "" {
 			page += fmt.Sprintf(` | <a href="/%s">%s</a>`, it.FeedHash, it.Feed.Title)
 		}
-		if it.Item.Content != "" && it.Item.Description != "" {
-			page += fmt.Sprintf("\n<blockquote>%s</blockquote>\n", it.Item.Description)
-		}
-		page += fmt.Sprintf(`</small>`)
 
-		page += "</blockquote>\n"
+		/*
+			if it.Item.Content != "" && it.Item.Description != "" {
+				page += fmt.Sprintf("\n<p>%s</p>\n", it.Item.Description)
+			}
+		*/
+		if it.Item.Description != "" {
+			desc := getDescription(it.Item.Description)
+			page += fmt.Sprintf("<p>%s</p>\n", desc)
+		} else if it.Item.Content != "" {
+			desc := getDescription(it.Item.Content)
+			page += fmt.Sprintf("<p>%s</p>\n", desc)
+		}
+		page += fmt.Sprintf("</small>\n")
+
+		page += "</feed>\n"
 
 		if i >= from+MaxNews {
 			early_exit = true
@@ -227,8 +250,6 @@ func serveNews(w http.ResponseWriter, r *http.Request) {
 		serveBase(w, r, page, "Updating..")
 		return
 	}
-
-	page += fmt.Sprintf(`<h2><a href="/refresh">Refresh</a></h2>` + "\n<hr>\n")
 
 	// load news
 	var news []News
