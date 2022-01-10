@@ -136,7 +136,7 @@ func getNews(name string, news []News, from int) (page string) {
 			}
 		}
 		page += fmt.Sprintf("[%d] %s", len(news), title)
-		page += ` | <a title="See everything" href="/?seeall">See everything</a>`
+		page += ` | <a title="Mark everything as seen" href="/?seeall">Mark everything as seen</a>`
 		page += "</h1>\n"
 	}
 
