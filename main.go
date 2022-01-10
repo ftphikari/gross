@@ -29,10 +29,16 @@ type Feed struct {
 }
 
 var (
-	confdir    string
-	cachedir   string
+	confdir  string
+	cachedir string
+
+	feedscache string
 	feedsfile  string
 	feeds      []Feed
+
+	seenfile string
+	seen     = make(map[string]bool)
+
 	port       int
 	fsys       fs.FS
 	refFeed    = make(chan string, 1)
@@ -105,7 +111,7 @@ func fetchFeed(u string) {
 		return
 	}
 
-	err = ioutil.WriteFile(filepath.Join(cachedir, hash+".rss"), rss, 0644)
+	err = ioutil.WriteFile(filepath.Join(feedscache, hash+".rss"), rss, 0644)
 	if err != nil {
 		setFeedStatus(hash, fmt.Sprintf("Unable to save to cache: %s", err))
 		return
@@ -117,12 +123,12 @@ func fetchFeed(u string) {
 
 func feedRefresher() {
 	for _ = range refFeed {
-		if err := os.RemoveAll(cachedir); err != nil {
+		if err := os.RemoveAll(feedscache); err != nil {
 			log.Println("Unable to remove cache dir: %s", err)
 			continue
 		}
 
-		if err := os.MkdirAll(cachedir, 0755); err != nil {
+		if err := os.MkdirAll(feedscache, 0755); err != nil {
 			log.Println("Unable to make cache dir: %s", err)
 			continue
 		}
@@ -275,6 +281,29 @@ func main() {
 	if err != nil {
 		log.Fatal("Unable to make cache dir:", err)
 	}
+	feedscache = filepath.Join(cachedir, "feeds")
+	err = os.MkdirAll(feedscache, 0755)
+	if err != nil {
+		log.Fatal("Unable to make feedscache dir:", err)
+	}
+	seenfile = filepath.Join(cachedir, "seen")
+	{ // import seen file
+		f, err := os.OpenFile(seenfile, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f.Close()
+
+		b, err := ioutil.ReadAll(f)
+		if err == nil {
+			seenids := strings.Split(string(b), "\n")
+			for _, id := range seenids {
+				if id != "" {
+					seen[id] = true
+				}
+			}
+		}
+	}
 
 	confdir, err = os.UserConfigDir()
 	if err != nil {
@@ -287,7 +316,7 @@ func main() {
 	}
 
 	feedsfile = filepath.Join(confdir, "feeds.opml")
-	{
+	{ // import feeds file
 		f, err := os.OpenFile(feedsfile, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
 		if err != nil {
 			log.Fatal(err)

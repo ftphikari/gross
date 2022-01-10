@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"html"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -21,6 +22,10 @@ func serveFeeds(w http.ResponseWriter, r *http.Request) {
 		f.Url = addurl
 		ok := addUrl(f)
 		if ok {
+			err := saveFeed()
+			if err != nil {
+				log.Println(err)
+			}
 			http.Redirect(w, r, "/feeds", http.StatusTemporaryRedirect)
 		} else {
 			page += fmt.Sprintf("<h2>Feed with this URL already exists</h2>\n<hr>\n")
@@ -106,7 +111,7 @@ func serveFeeds(w http.ResponseWriter, r *http.Request) {
 		page += "</h3>\n"
 		page += fmt.Sprintf("<small>\n")
 		page += fmt.Sprintf("[%s]\n", status)
-		page += fmt.Sprintf(` | <a title="Delete the feed" href="/feeds?delete=%s">DEL</a>`+"\n", hash)
+		page += fmt.Sprintf(` | <a title="Delete the feed" href="/feeds?delete=%s"><i class="fas fa-trash"></i></a>`+"\n", hash)
 		page += fmt.Sprintf("<p>%s</p>\n", f.Url)
 		page += fmt.Sprintf("</small>\n")
 		page += "</feed>\n"

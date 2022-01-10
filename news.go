@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -21,6 +23,8 @@ type News struct {
 	Item     *gofeed.Item
 	Hash     string
 }
+
+var displayseen bool
 
 func getAuthorsString(au []*gofeed.Person) (authors string) {
 	for i, a := range au {
@@ -66,6 +70,7 @@ loopDomTest:
 }
 
 func serveNewsItem(w http.ResponseWriter, r *http.Request, feedhash, hash string) {
+	r.ParseForm()
 	page := ""
 
 	s, ok := getFeedStatus(feedhash)
@@ -77,7 +82,7 @@ func serveNewsItem(w http.ResponseWriter, r *http.Request, feedhash, hash string
 
 	var item *gofeed.Item
 	var ithash string
-	feed, err := feedFromFile(filepath.Join(cachedir, feedhash+".rss"))
+	feed, err := feedFromFile(filepath.Join(feedscache, feedhash+".rss"))
 	if err != nil {
 		page += "<h1>Unable to read the feed file</h1>\n"
 		serveBase(w, r, page, "")
@@ -98,6 +103,17 @@ func serveNewsItem(w http.ResponseWriter, r *http.Request, feedhash, hash string
 		return
 	}
 
+	addSeen(feedhash + "-" + hash)
+	err = saveSeen()
+	if err != nil {
+		log.Println(err)
+	}
+
+	if _, see := r.Form["see"]; see {
+		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		return
+	}
+
 	http.Redirect(w, r, item.Link, http.StatusTemporaryRedirect)
 }
 
@@ -109,11 +125,18 @@ func getNews(name string, news []News, from int) (page string) {
 	})
 
 	{
+		page += "<h1>"
 		title := name
 		if name == "" {
 			title = "News"
+			if displayseen {
+				page += `<a active title="Toggle seen" href="/?toggleseen"><i class="fas fa-eye-slash"></i></a> `
+			} else {
+				page += `<a inactive title="Toggle seen" href="/?toggleseen"><i class="fas fa-eye"></i></a> `
+			}
 		}
-		page += fmt.Sprintf(`<h1>[%d] %s</h1>`+"\n", len(news), title)
+		page += fmt.Sprintf("[%d] %s", len(news), title)
+		page += "</h1>\n"
 	}
 
 	early_exit := false
@@ -122,7 +145,16 @@ func getNews(name string, news []News, from int) (page string) {
 			continue
 		}
 
-		page += "<feed>\n"
+		isseen := false
+		if _, ok := seen[it.FeedHash+"-"+it.Hash]; ok {
+			isseen = true
+		}
+
+		if isseen {
+			page += "<feed seen>\n"
+		} else {
+			page += "<feed>\n"
+		}
 		title := fmt.Sprintf(`<a href="/%s/%s">%s</a>`, it.FeedHash, it.Hash, it.Item.Title)
 		authors := getAuthorsString(it.Item.Authors)
 		page += "<h3>"
@@ -133,8 +165,11 @@ func getNews(name string, news []News, from int) (page string) {
 		page += title
 		page += "</h3>\n"
 
-		date := it.Item.PublishedParsed.Format("2006-01-02 15:04")
-		page += fmt.Sprintf("<small>%s", date)
+		page += fmt.Sprintf("<small>")
+		if name == "" && !isseen {
+			page += fmt.Sprintf(`<a title="Mark as seen" href="/%s/%s?see"><i class="fas fa-eye"></i></a>`+"\n", it.FeedHash, it.Hash)
+		}
+		page += fmt.Sprintf(" %s", it.Item.PublishedParsed.Format("2006-01-02 15:04"))
 		if authors != "" {
 			page += fmt.Sprintf(` | %s`, authors)
 		}
@@ -142,11 +177,6 @@ func getNews(name string, news []News, from int) (page string) {
 			page += fmt.Sprintf(` | <a href="/%s">%s</a>`, it.FeedHash, it.Feed.Title)
 		}
 
-		/*
-			if it.Item.Content != "" && it.Item.Description != "" {
-				page += fmt.Sprintf("\n<p>%s</p>\n", it.Item.Description)
-			}
-		*/
 		if it.Item.Description != "" {
 			desc := getDescription(it.Item.Description)
 			page += fmt.Sprintf("<p>%s</p>\n", desc)
@@ -204,7 +234,7 @@ func serveNewsFeed(w http.ResponseWriter, r *http.Request, feedhash string) {
 	}
 
 	var news []News
-	feed, err := feedFromFile(filepath.Join(cachedir, feedhash+".rss"))
+	feed, err := feedFromFile(filepath.Join(feedscache, feedhash+".rss"))
 	if err != nil {
 		page += fmt.Sprintf("<h1>Unable to load the feed %s</h1>\n", u)
 		serveBase(w, r, page, "")
@@ -223,12 +253,40 @@ func serveNewsFeed(w http.ResponseWriter, r *http.Request, feedhash string) {
 	serveBase(w, r, page, feed.Title)
 }
 
+func saveSeen() error {
+	var b []byte
+	for id := range seen {
+		b = append(b, []byte(id+"\n")...)
+	}
+	err := ioutil.WriteFile(seenfile, b, 0644)
+	if err != nil {
+		return fmt.Errorf("Unable to save feeds: %s", err)
+	}
+	return nil
+}
+
+func addSeen(seenid string) (ok bool) {
+	if _, ok := seen[seenid]; ok {
+		return false
+	}
+	seen[seenid] = true
+	return true
+}
+
 func serveNews(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	from, err := strconv.Atoi(r.Form.Get("from"))
 	if err != nil {
 		from = 0
 	}
+
+	if _, ts := r.Form["toggleseen"]; ts {
+		displayseen = !displayseen
+		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		return
+	}
+
+	_, seeall := r.Form["seeall"]
 
 	page := ""
 
@@ -261,13 +319,33 @@ func serveNews(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		feed, err := feedFromFile(filepath.Join(cachedir, hash+".rss"))
+		feed, err := feedFromFile(filepath.Join(feedscache, hash+".rss"))
 		if err != nil {
 			continue
 		}
 		for _, it := range feed.Items {
 			ithash := getHash(it.Title + it.Link)
+
+			isseen := false
+			if _, ok := seen[hash+"-"+ithash]; ok {
+				isseen = true
+			}
+
+			if !displayseen && isseen {
+				continue
+			}
+
 			news = append(news, News{feed, hash, it, ithash})
+			if seeall {
+				addSeen(hash + "-" + ithash)
+			}
+		}
+	}
+
+	if seeall {
+		err := saveSeen()
+		if err != nil {
+			log.Println(err)
 		}
 	}
 

@@ -65,10 +65,16 @@ blockquote::before { content: ""; pointer-events: none; }
 blockquote img { margin-right: 10px; float: left; }
 blockquote cite { float: right; }
 
-feed { padding: 7px; margin: 7px; display: block; border: solid var(--fg-dim) 3px; }
+feed { color: var(--fg); padding: 7px; margin: 7px; display: block; border: solid var(--fg-dim) 3px; }
 feed h3 { margin: 3px 0px; }
 feed p { margin: 0px; margin-top: 1em; }
 feed img { height: 1em; }
+feed[seen], feed[seen] a { color: var(--fg-dim); text-decoration-color: transparent; }
+
+a[active] { color: var(--fg); text-decoration-color: var(--fg); }
+a[active]:hover { color: var(--fg-dim); text-decoration-color: transparent; }
+a[inactive] { color: var(--fg-visited); text-decoration-color: var(--fg-visited); }
+a[inactive]:hover { color: var(--fg); text-decoration-color: transparent; }
 
 table { border: 2px solid var(--fg); margin: 10px; }
 th, td { padding: 10px; border: 1px solid var(--fg); text-align: left; }

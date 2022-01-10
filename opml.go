@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io/ioutil"
+	"log"
 )
 
 type Outline struct {
@@ -47,6 +48,11 @@ func importOPML(data []byte) error {
 	}
 
 	addOutlines(o.Outlines)
+
+	err := saveFeed()
+	if err != nil {
+		log.Println(err)
+	}
 
 	return nil
 }

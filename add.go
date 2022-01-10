@@ -32,10 +32,6 @@ func addUrl(af Feed) (ok bool) {
 	}
 
 	feeds = append(feeds, af)
-	err := saveFeed()
-	if err != nil {
-		log.Println(err)
-	}
 	return true
 }
 
