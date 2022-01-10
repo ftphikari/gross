@@ -136,6 +136,7 @@ func getNews(name string, news []News, from int) (page string) {
 			}
 		}
 		page += fmt.Sprintf("[%d] %s", len(news), title)
+		page += ` | <a title="See everything" href="/?seeall">See everything</a>`
 		page += "</h1>\n"
 	}
 
@@ -347,6 +348,8 @@ func serveNews(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Println(err)
 		}
+		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		return
 	}
 
 	if from > len(news)-1 || from < 0 {
