@@ -338,7 +338,7 @@ func main() {
 	}
 
 	go feedRefresher()
-	//refreshFeed("")
+	refreshFeed("")
 
 	http.Handle("/", gzip.DefaultHandler().WrapHandler(http.HandlerFunc(serve)))
 	log.Println("Server started on 127.0.0.1:" + strconv.Itoa(port))
