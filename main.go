@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/mmcdole/gofeed"
-	"github.com/nanmu42/gzip"
 )
 
 type Feed struct {
@@ -340,7 +339,7 @@ func main() {
 	go feedRefresher()
 	refreshFeed("")
 
-	http.Handle("/", gzip.DefaultHandler().WrapHandler(http.HandlerFunc(serve)))
+	http.Handle("/", http.HandlerFunc(serve))
 	log.Println("Server started on 127.0.0.1:" + strconv.Itoa(port))
 
 	log.Fatal(http.ListenAndServe(":"+strconv.Itoa(port), nil))
