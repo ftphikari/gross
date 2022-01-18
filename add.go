@@ -15,9 +15,22 @@ func removeFeed(slice []Feed, s int) []Feed {
 func saveFeed() error {
 	err := exportOPML(feedsfile)
 	if err != nil {
-		return fmt.Errorf("Unable to save the feeds file:", err)
+		return fmt.Errorf("unable to save the feeds file: %s", err)
 	}
 	return nil
+}
+
+func setUrlTitle(u, title string) {
+	addLock.Lock()
+	defer addLock.Unlock()
+
+	// check if already exists
+	for i, f := range feeds {
+		if f.Url == u {
+			feeds[i].Title = title
+			return
+		}
+	}
 }
 
 func addUrl(af Feed) (ok bool) {

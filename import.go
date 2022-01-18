@@ -36,7 +36,7 @@ func serveImport(w http.ResponseWriter, r *http.Request) {
 }
 
 func serveExport(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Disposition", "attachment; filename=feeds.opml")
+	w.Header().Set("Content-Disposition", "attachment; filename=feeds.xml")
 	w.Header().Set("Content-Type", "text/x-opml+xml")
 
 	http.ServeFile(w, r, feedsfile)

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/md5"
 	"embed"
 	"flag"
@@ -51,7 +52,7 @@ var site embed.FS
 func feedFromFile(filename string) (*gofeed.Feed, error) {
 	f, err := os.Open(filename)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to open feed: %s", err)
+		return nil, fmt.Errorf("unable to open feed: %s", err)
 	}
 	defer f.Close()
 
@@ -108,6 +109,14 @@ func fetchFeed(u string) {
 		return
 	}
 
+	feed, err := gofeed.NewParser().Parse(bytes.NewReader(rss))
+	if err != nil {
+		setFeedStatus(hash, fmt.Sprintf("Unable to parse the feed: %s", err))
+		return
+	}
+
+	setUrlTitle(u, feed.Title)
+
 	err = ioutil.WriteFile(filepath.Join(feedscache, hash+".rss"), rss, 0644)
 	if err != nil {
 		setFeedStatus(hash, fmt.Sprintf("Unable to save to cache: %s", err))
@@ -115,18 +124,17 @@ func fetchFeed(u string) {
 	}
 
 	setFeedStatus(hash, "OK")
-	return
 }
 
 func feedRefresher() {
-	for _ = range refFeed {
+	for range refFeed {
 		if err := os.RemoveAll(feedscache); err != nil {
-			log.Println("Unable to remove cache dir: %s", err)
+			log.Println("unable to remove cache dir:", err)
 			continue
 		}
 
 		if err := os.MkdirAll(feedscache, 0755); err != nil {
-			log.Println("Unable to make cache dir: %s", err)
+			log.Println("unable to make cache dir:", err)
 			continue
 		}
 
@@ -312,7 +320,7 @@ func main() {
 		log.Fatal("Unable to make config dir:", err)
 	}
 
-	feedsfile = filepath.Join(confdir, "feeds.opml")
+	feedsfile = filepath.Join(confdir, "feeds.xml")
 	{ // import feeds file
 		f, err := os.OpenFile(feedsfile, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0644)
 		if err != nil {

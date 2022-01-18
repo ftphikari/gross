@@ -61,7 +61,7 @@ loopDomTest:
 			if prevtok.Data == "p" || prevtok.Data == "div" {
 				return
 			} else {
-				desc += fmt.Sprintf("%s", txt)
+				desc += txt
 			}
 		}
 	}
@@ -166,7 +166,7 @@ func getNews(name string, news []News, from int) (page string) {
 		page += title
 		page += "</h3>\n"
 
-		page += fmt.Sprintf("<small>")
+		page += "<small>"
 		if name == "" && !isseen {
 			page += fmt.Sprintf(`<a title="Mark as seen" href="/%s/%s?see"><i class="fas fa-eye"></i></a>`+"\n", it.FeedHash, it.Hash)
 		}
@@ -185,7 +185,7 @@ func getNews(name string, news []News, from int) (page string) {
 			desc := getDescription(it.Item.Content)
 			page += fmt.Sprintf("<p>%s</p>\n", desc)
 		}
-		page += fmt.Sprintf("</small>\n")
+		page += "</small>\n"
 
 		page += "</feed>\n"
 
@@ -229,7 +229,7 @@ func serveNewsFeed(w http.ResponseWriter, r *http.Request, feedhash string) {
 
 	s, ok := getFeedStatus(feedhash)
 	if ok && s == "..." {
-		page += fmt.Sprintf("<h1>Feed is still updating</h1>\n")
+		page += "<h1>Feed is still updating</h1>\n"
 		serveBase(w, r, page, "")
 		return
 	}
@@ -261,7 +261,7 @@ func saveSeen() error {
 	}
 	err := ioutil.WriteFile(seenfile, b, 0644)
 	if err != nil {
-		return fmt.Errorf("Unable to save feeds: %s", err)
+		return fmt.Errorf("unable to save feeds: %s", err)
 	}
 	return nil
 }

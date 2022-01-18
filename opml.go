@@ -41,7 +41,7 @@ func addOutlines(out []Outline) {
 func importOPML(data []byte) error {
 	var o OPML
 	if err := xml.Unmarshal(data, &o); err != nil {
-		return fmt.Errorf("Unable to unmarshal OPML: %s", err)
+		return fmt.Errorf("unable to unmarshal OPML: %s", err)
 	}
 
 	addOutlines(o.Outlines)
@@ -68,12 +68,12 @@ func exportOPML(f string) error {
 
 	b, err := xml.Marshal(o)
 	if err != nil {
-		return fmt.Errorf("Unable to marshal feeds: %s", err)
+		return fmt.Errorf("unable to marshal feeds: %s", err)
 	}
 
 	err = ioutil.WriteFile(f, b, 0644)
 	if err != nil {
-		return fmt.Errorf("Unable to save feeds: %s", err)
+		return fmt.Errorf("unable to save feeds: %s", err)
 	}
 
 	return nil

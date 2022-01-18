@@ -28,7 +28,7 @@ func serveFeeds(w http.ResponseWriter, r *http.Request) {
 			}
 			http.Redirect(w, r, "/feeds", http.StatusTemporaryRedirect)
 		} else {
-			page += fmt.Sprintf("<h2>Feed with this URL already exists</h2>\n<hr>\n")
+			page += "<h2>Feed with this URL already exists</h2>\n<hr>\n"
 		}
 	}
 
@@ -38,13 +38,13 @@ func serveFeeds(w http.ResponseWriter, r *http.Request) {
 		if ok {
 			http.Redirect(w, r, "/feeds", http.StatusTemporaryRedirect)
 		} else {
-			page += fmt.Sprintf("<h2>Feed with this hash does not exist</h2>\n<hr>\n")
+			page += "<h2>Feed with this hash does not exist</h2>\n<hr>\n"
 		}
 	}
 
 	page += fmt.Sprintf("<h1>[%d] Feeds</h1>\n", len(feeds))
 
-	page += fmt.Sprintf(`<urlmng>
+	page += `<urlmng>
 	<form action="/feeds">
 	<input type="text" name="add" placeholder="Add URL.." autocomplete="off">
 	<button title="Add URL" type="submit"><i class="fas fa-plus"></i></button>
@@ -59,16 +59,13 @@ func serveFeeds(w http.ResponseWriter, r *http.Request) {
 	<input type="file" name="file">
 	<button title="Upload" type="submit"><i class="fas fa-file-import"></i></button>
 	</form>
-	</filemng>`)
+	</filemng>`
 
 	for _, f := range feeds {
 		page += "<feed>\n"
 		hash := fmt.Sprintf("%x", md5.Sum([]byte(f.Url)))
-		cache := filepath.Join(cachedir, hash+".rss")
-		title := "?"
-		if f.Title != "" {
-			title = f.Title
-		}
+		cache := filepath.Join(feedscache, hash+".rss")
+		title := f.Title
 		imgurl := "/favicon.ico"
 		{
 			u, err := url.Parse(f.Url)
@@ -84,7 +81,7 @@ func serveFeeds(w http.ResponseWriter, r *http.Request) {
 			status = fmt.Sprintf(`<abbr title="%s">ERR</abbr>`, html.EscapeString(s))
 		} else {
 			if _, err := os.Stat(cache); errors.Is(err, os.ErrNotExist) {
-				status = fmt.Sprintf(`<abbr title="Out of Date">OOD</abbr>`)
+				status = `<abbr title="Out of Date">OOD</abbr>`
 			} else {
 				feed, err := feedFromFile(cache)
 				if err != nil { // wrong format (e.g. not xml)
@@ -100,7 +97,7 @@ func serveFeeds(w http.ResponseWriter, r *http.Request) {
 					if ok && s == "OK" {
 						status = s
 					} else {
-						status = fmt.Sprintf(`<abbr title="Out of Date">OOD</abbr>`)
+						status = `<abbr title="Out of Date">OOD</abbr>`
 					}
 				}
 			}
@@ -109,11 +106,11 @@ func serveFeeds(w http.ResponseWriter, r *http.Request) {
 		page += fmt.Sprintf(`<img alt src="%s" />`+"\n", imgurl)
 		page += title
 		page += "</h3>\n"
-		page += fmt.Sprintf("<small>\n")
+		page += "<small>\n"
 		page += fmt.Sprintf("[%s]\n", status)
 		page += fmt.Sprintf(` | <a title="Delete the feed" href="/feeds?delete=%s"><i class="fas fa-trash"></i></a>`+"\n", hash)
 		page += fmt.Sprintf("<p>%s</p>\n", f.Url)
-		page += fmt.Sprintf("</small>\n")
+		page += "</small>\n"
 		page += "</feed>\n"
 	}
 
