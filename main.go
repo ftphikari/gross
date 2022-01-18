@@ -8,7 +8,6 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"log"
-	"math/rand"
 	"net/http"
 	"os"
 	"path"
@@ -17,7 +16,6 @@ import (
 	"strings"
 	"sync"
 	"text/template"
-	"time"
 
 	"github.com/mmcdole/gofeed"
 )
@@ -88,7 +86,7 @@ func fetchFeed(u string) {
 	hash := fmt.Sprintf("%x", md5.Sum([]byte(u)))
 	setFeedStatus(hash, "...")
 
-	time.Sleep(time.Duration(rand.Intn(5)) * time.Second) // make loading artificially slow to test things
+	//time.Sleep(time.Duration(rand.Intn(5)) * time.Second) // make loading artificially slow to test things
 
 	client := http.Client{
 		CheckRedirect: func(r *http.Request, via []*http.Request) error {
